@@ -26,8 +26,7 @@ fn day01() {
             .iter()
             .filter_map(|(i, pat)| line.rfind(pat).map(|j| (j, i)))
             .sorted()
-            .rev()
-            .next()
+            .next_back()
             .unwrap();
         res += first * 10 + last;
     }

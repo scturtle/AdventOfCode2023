@@ -2,4 +2,5 @@ Save cookie ~session=...~ to ~.env~.
 
 #+begin_src bash
 cargo nextest run --release --no-capture -- day01
+cargo clippy --tests
 #+end_src

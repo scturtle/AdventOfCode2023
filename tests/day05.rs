@@ -109,5 +109,5 @@ fn day05() {
         }
         segs = merge(next_segs);
     }
-    dbg!(segs.iter().next().unwrap().0);
+    dbg!(segs.first().unwrap().0);
 }

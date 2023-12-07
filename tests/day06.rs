@@ -12,12 +12,12 @@ fn parse(s: &str) -> IResult<&str, (Vec<usize>, Vec<usize>)> {
         tag("Time:"),
         many1(preceded(space1, map_res(digit1, str::parse))),
         line_ending,
-    )(&s)?;
+    )(s)?;
     let (s, dists) = delimited(
         tag("Distance:"),
         many1(preceded(space1, map_res(digit1, str::parse))),
         alt((line_ending, eof)),
-    )(&s)?;
+    )(s)?;
     Ok((s, (times, dists)))
 }
 
