@@ -7,7 +7,7 @@ pub fn get_test_input() -> std::io::Result<String> {
 }
 
 pub fn get_input(day: i8) -> std::io::Result<String> {
-    dotenv::dotenv().expect(".env");
+    dotenvy::dotenv().expect(".env");
     let session = std::env::var("session").expect("env session");
     let filename = format!("{day}.txt");
     let path = Path::new(&filename);
