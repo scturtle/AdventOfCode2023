@@ -1,4 +1,3 @@
-use ahash::AHashMap;
 use itertools::Itertools;
 use nom::{
     branch::alt,
@@ -26,39 +25,32 @@ fn parse(s: &str) -> IResult<&str, Input> {
     Ok((s, Input { rows }))
 }
 
-type Cache = AHashMap<((usize, usize), (usize, usize)), usize>;
-
-fn dfs(s: &[u8], n: &[usize], sg: (usize, usize), ng: (usize, usize), cache: &mut Cache) -> usize {
-    if let Some(&cached) = cache.get(&(sg, ng)) {
-        return cached;
+fn dp(s: &[u8], n: &[usize]) -> usize {
+    let mut cnt = vec![vec![0usize; n.len() + 1]; s.len() + 1];
+    // s[..i] w/o "#"
+    for i in 0..=s.len() {
+        if s[..i].iter().all(|&c| c != b'#') {
+            cnt[i][0] = 1;
+        }
     }
-    let cnt = if ng.0 == ng.1 {
-        if s[sg.0..sg.1].iter().all(|&c| c != b'#') {
-            1
-        } else {
-            0
-        }
-    } else {
-        let mut cnt = 0;
-        for i in sg.0..sg.1 {
-            let j = (ng.0 + ng.1) / 2;
-            let x = n[j];
-            let (nl, nr) = ((ng.0, j), (j + 1, ng.1));
-            // match "^#+" at the start
-            if i == 0 && j == 0 && x <= sg.1 && s[..x].iter().all(|&c| c != b'.') {
-                let (sl, sr) = ((sg.0, 0), (i + x, sg.1));
-                cnt += dfs(s, n, sl, nl, cache) * dfs(s, n, sr, nr, cache);
+    for i in 1..=s.len() {
+        for j in 1..=n.len() {
+            let x = n[j - 1];
+            let mut cur = 0;
+            for m in 0..i {
+                // s[0..m]: cnt[m][j - 1]
+                // s[m..m + 1 + x] is ".#+"
+                if m + 1 + x <= i && s[m] != b'#' && s[m + 1..m + 1 + x].iter().all(|&c| c != b'.')
+                // s[m + 1 + x..i] w/o "#"
+                    && s[m + 1 + x..i].iter().all(|&c| c != b'#')
+                {
+                    cur += cnt[m][j - 1];
+                }
             }
-            // match ".#+"
-            if s[i] != b'#' && i + 1 + x <= sg.1 && s[i + 1..i + 1 + x].iter().all(|&c| c != b'.') {
-                let (sl, sr) = ((sg.0, i), (i + 1 + x, sg.1));
-                cnt += dfs(s, n, sl, nl, cache) * dfs(s, n, sr, nr, cache);
-            }
+            cnt[i][j] = cur;
         }
-        cnt
-    };
-    cache.insert((sg, ng), cnt);
-    cnt
+    }
+    cnt[s.len()][n.len()]
 }
 
 #[test]
@@ -68,9 +60,9 @@ fn day12() {
     let mut res1 = 0;
     let Input { rows } = parse(&txt).unwrap().1;
     for (ss, ns) in &rows {
-        let mut cache: Cache = Cache::new();
-        let cnt = dfs(ss.as_bytes(), ns, (0, ss.len()), (0, ns.len()), &mut cache);
-        res1 += cnt;
+        // prepend a "." before to match ".*+" for each item
+        let ss = ".".to_string() + ss;
+        res1 += dp(ss.as_bytes(), ns);
     }
     dbg!(res1);
 
@@ -83,15 +75,15 @@ fn day12() {
             .cloned()
             .collect_vec()
             .join("?");
+        // prepend a "." before to match ".*+" for each item
+        let ss = ".".to_string() + &ss;
         let ns = std::iter::once(ns)
             .cycle()
             .take(5)
             .flatten()
             .cloned()
             .collect_vec();
-        let mut cache: Cache = Cache::new();
-        let cnt = dfs(ss.as_bytes(), &ns, (0, ss.len()), (0, ns.len()), &mut cache);
-        res2 += cnt;
+        res2 += dp(ss.as_bytes(), &ns);
     }
     dbg!(res2);
 }
