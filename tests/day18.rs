@@ -43,27 +43,6 @@ fn digit_to_dir(d: u8) -> char {
     }
 }
 
-type Line = ((i64, i64), (i64, i64));
-
-fn test_hori_line(hori_line: Line, vert_lines: &[Line]) -> bool {
-    let (st, ed) = hori_line;
-    let xs = vert_lines
-        .iter()
-        .filter_map(|&(a, b)| {
-            if a == st || a == ed {
-                Some(b.0)
-            } else if b == st || b == ed {
-                Some(a.0)
-            } else {
-                None
-            }
-        })
-        .collect_vec();
-    assert!(xs.len() == 2);
-    let x = st.0;
-    (xs[0] < x && x < xs[1]) || (xs[1] < x && x < xs[0])
-}
-
 #[test]
 fn day18() {
     let txt = aoc::get_input(18).unwrap();
@@ -86,80 +65,26 @@ fn day18() {
         })
         .collect_vec();
 
+    // https://www.reddit.com/r/adventofcode/comments/18l0qtr/comment/kdvrqv8
+    // A: inner area (lack of border), i: inner point number, b: border point number
+    // Pick’s theorem: A = i + b / 2 - 1
+    // shoelace formula: A = 1/2 * ∑ (xi - xi_1) * (yi - yi_1)
+    // We want sum of the one meter rect ('#') around all points.
+    // So what we really need is i + b, that is inner point number plus border point number.
+    // Plus b / 2 + 1 to both side of Pick's theorem is:
+    // A + b / 2 + 1 = i + b
+    // We can get the inner aera A from shoelace formula,
+    // and the border point number count through walking.
+
     let mut cur = (0, 0);
-    let mut xs = vec![0];
-    let mut hori_lines = vec![];
-    let mut vert_lines = vec![];
+    let mut aera2 = 0;
+    let mut b = 1;
     for &(dir, step) in &moves {
         let (dx, dy) = dir_to_dxdy(dir);
         let nxt = (cur.0 + dx * step, cur.1 + dy * step);
-        xs.push(nxt.0);
-        if cur.0 == nxt.0 {
-            hori_lines.push(if cur.1 < nxt.1 {
-                (cur, nxt)
-            } else {
-                (nxt, cur)
-            });
-        }
-        if cur.1 == nxt.1 {
-            vert_lines.push(if cur.0 < nxt.0 {
-                (cur, nxt)
-            } else {
-                (nxt, cur)
-            });
-        }
+        aera2 += (nxt.0 - cur.0) * (nxt.1 + cur.1);
+        b += step;
         cur = nxt;
     }
-
-    let xs: Vec<i64> = xs.into_iter().sorted().unique().collect();
-
-    let cnt_line = |x: i64| -> i64 {
-        let mut pts = vec![];
-        for &(st, ed) in &hori_lines {
-            if st.0 == x {
-                let change = test_hori_line((st, ed), &vert_lines);
-                pts.push((st.1, ed.1, change));
-            }
-        }
-        for &(st, ed) in &vert_lines {
-            if st.0 < x && x < ed.0 {
-                pts.push((st.1, ed.1, true));
-            }
-        }
-        pts.sort();
-        let mut cnt = 0;
-        let mut inner = false;
-        for (i, &(x, y, change)) in pts.iter().enumerate() {
-            cnt += y - x + 1;
-            if inner {
-                cnt += x - pts[i - 1].1 - 1;
-            }
-            if change {
-                inner = !inner;
-            }
-        }
-        cnt
-    };
-    let cnt_rect = |x0: i64, x1: i64| -> i64 {
-        let mut pts = vec![];
-        for &(st, ed) in &vert_lines {
-            if st.0 <= x0 && x1 <= ed.0 {
-                pts.push(st.1);
-            }
-        }
-        pts.sort();
-        let mut cnt = 0;
-        for cs in pts.chunks_exact(2) {
-            cnt += cs[1] - cs[0] + 1;
-        }
-        cnt * (x1 - x0 - 1)
-    };
-
-    let mut tot = 0;
-    tot += cnt_line(xs[0]);
-    for i in 1..xs.len() {
-        tot += cnt_rect(xs[i - 1], xs[i]);
-        tot += cnt_line(xs[i]);
-    }
-    dbg!(tot);
+    dbg!(aera2 / 2 + b / 2 + 1);
 }
