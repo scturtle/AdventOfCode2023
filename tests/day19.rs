@@ -3,12 +3,15 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{alpha1, digit1, line_ending, one_of},
-    combinator::{eof, map_res},
-    multi::{many1, separated_list1},
-    sequence::{preceded, terminated, tuple},
+    combinator::{eof, map, map_res},
+    multi::{many1, separated_list1 as sep1},
+    sequence::{preceded as pre, terminated as term, tuple},
     IResult,
 };
-use std::io::Result as IoResult;
+
+fn int<T: std::str::FromStr>(s: &str) -> IResult<&str, T> {
+    map_res(digit1, str::parse::<T>)(s)
+}
 
 #[derive(Debug)]
 enum Ruler<'a> {
@@ -18,22 +21,17 @@ enum Ruler<'a> {
 }
 
 fn ruler(s: &str) -> IResult<&str, Ruler> {
-    let less_or_larger = map_res(
-        tuple((
-            one_of("xmas"),
-            one_of("<>"),
-            map_res(digit1, str::parse),
-            preceded(tag(":"), alpha1),
-        )),
-        |(cat, op, val, lbl)| -> IoResult<_> {
+    let less_or_larger = map(
+        tuple((one_of("xmas"), one_of("<>"), int::<usize>, tag(":"), alpha1)),
+        |(cat, op, val, _, lbl)| {
             if op == '<' {
-                Ok(Ruler::LessThan(cat, val, lbl))
+                Ruler::LessThan(cat, val, lbl)
             } else {
-                Ok(Ruler::LargerThan(cat, val, lbl))
+                Ruler::LargerThan(cat, val, lbl)
             }
         },
     );
-    let goto = map_res(alpha1, |lbl| -> IoResult<_> { Ok(Ruler::Goto(lbl)) });
+    let goto = map(alpha1, |lbl| Ruler::Goto(lbl));
     alt((less_or_larger, goto))(s)
 }
 
@@ -44,8 +42,8 @@ struct Workflow<'a> {
 }
 
 fn workflow(s: &str) -> IResult<&str, Workflow> {
-    let (s, lbl) = terminated(alpha1, tag("{"))(s)?;
-    let (s, rulers) = separated_list1(tag(","), ruler)(s)?;
+    let (s, lbl) = term(alpha1, tag("{"))(s)?;
+    let (s, rulers) = sep1(tag(","), ruler)(s)?;
     let (s, _) = tag("}")(s)?;
     Ok((s, Workflow { lbl, rulers }))
 }
@@ -59,18 +57,21 @@ struct Part {
 }
 
 fn part(s: &str) -> IResult<&str, Part> {
-    let (s, x) = preceded(tag("{x="), map_res(digit1, str::parse))(s)?;
-    let (s, m) = preceded(tag(",m="), map_res(digit1, str::parse))(s)?;
-    let (s, a) = preceded(tag(",a="), map_res(digit1, str::parse))(s)?;
-    let (s, s_) = preceded(tag(",s="), map_res(digit1, str::parse))(s)?;
+    let usize_ = int::<usize>;
+    let (s, (x, m, a, s_)) = tuple((
+        pre(tag("{x="), usize_),
+        pre(tag(",m="), usize_),
+        pre(tag(",a="), usize_),
+        pre(tag(",s="), usize_),
+    ))(s)?;
     let (s, _) = tag("}")(s)?;
     Ok((s, Part { x, m, a, s: s_ }))
 }
 
 fn parse(s: &str) -> IResult<&str, (Vec<Workflow>, Vec<Part>)> {
-    let (s, workflows) = separated_list1(line_ending, workflow)(s)?;
+    let (s, workflows) = sep1(line_ending, workflow)(s)?;
     let (s, _) = many1(line_ending)(s)?;
-    let (s, parts) = separated_list1(line_ending, part)(s)?;
+    let (s, parts) = sep1(line_ending, part)(s)?;
     let (s, _) = alt((line_ending, eof))(s)?;
     Ok((s, (workflows, parts)))
 }
