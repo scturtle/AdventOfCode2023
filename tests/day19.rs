@@ -31,7 +31,7 @@ fn ruler(s: &str) -> IResult<&str, Ruler> {
             }
         },
     );
-    let goto = map(alpha1, |lbl| Ruler::Goto(lbl));
+    let goto = map(alpha1, Ruler::Goto);
     alt((less_or_larger, goto))(s)
 }
 
